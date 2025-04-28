@@ -8,13 +8,14 @@ import {SwapFacet} from "./facets/SwapFacet.sol";
 import {VaultFacet} from "./facets/VaultFacet.sol";
 import {DecimalAdjustor} from "../integrations/adjustor/DecimalAdjustor.sol";
 
+//@>i the Burve init library
 struct BurveFacets {
     address valueFacet;
     address valueTokenFacet;
     address simplexFacet;
     address swapFacet;
     address vaultFacet;
-    address adjustor;
+    address adjustor; //@>i decimal adjuster (a DecimalAdjustor contract)
 }
 
 library InitLib {

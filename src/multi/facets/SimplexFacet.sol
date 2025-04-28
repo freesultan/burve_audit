@@ -246,7 +246,7 @@ contract SimplexFacet {
     // 3. When someone donates.
     /// @dev Only callable by the contract owner.
     function withdraw(address token) external {
-        AdminLib.validateOwner();
+        AdminLib.validateOwner(); //@>i only owner can withdraw protocol tokens
 
         uint256 balance = IERC20(token).balanceOf(address(this));
 

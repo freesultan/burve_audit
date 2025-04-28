@@ -65,6 +65,7 @@ contract ValueFacet is ReentrancyGuardTransient {
         nonReentrant
         returns (uint256[MAX_TOKENS] memory requiredBalances)
     {
+        //@>i everyone can add value and become a LP
         if (value == 0) revert DeMinimisDeposit();
         require(bgtValue <= value, InsufficientValueForBgt(value, bgtValue));
         ClosureId cid = ClosureId.wrap(_closureId);
@@ -92,6 +93,7 @@ contract ValueFacet is ReentrancyGuardTransient {
             );
             Store.vertex(VertexLib.newId(i)).deposit(cid, realNeeded);
         }
+
         Store.assets().add(recipient, cid, value, bgtValue);
     }
 
@@ -205,6 +207,7 @@ contract ValueFacet is ReentrancyGuardTransient {
             receivedBalances[i] = realSend;
             // Users can remove value even if the token is locked. It actually helps derisk us.
             Store.vertex(VertexLib.newId(i)).withdraw(cid, realSend, false);
+            //@>i sensitive area: transfer token to lp
             TransferHelper.safeTransfer(token, recipient, realSend);
         }
     }

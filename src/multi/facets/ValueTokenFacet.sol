@@ -13,6 +13,7 @@ contract ValueTokenFacet is ERC20 {
 
     constructor() ERC20("", "") {}
 
+    //@>i Converts staked value into ERC20 tokens while removing it from active staking
     function mint(uint256 value, uint256 bgtValue, uint16 _cid) external {
         require(bgtValue <= value, InsufficientValueForBgt(value, bgtValue));
         ClosureId cid = ClosureId.wrap(_cid);
@@ -22,6 +23,7 @@ contract ValueTokenFacet is ERC20 {
         _mint(msg.sender, value);
     }
 
+    //@>i Burns ERC20 tokens to restore staked value in the protocol
     function burn(uint256 value, uint256 bgtValue, uint16 _cid) external {
         require(bgtValue <= value, InsufficientValueForBgt(value, bgtValue));
         _burn(msg.sender, value);

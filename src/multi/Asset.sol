@@ -27,6 +27,7 @@ struct Asset {
 }
 
 struct AssetBook {
+    //@>i assets of users in each closure
     mapping(address => mapping(ClosureId => Asset)) assets;
 }
 

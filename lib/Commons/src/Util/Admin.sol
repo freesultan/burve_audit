@@ -23,7 +23,8 @@ library AdminFlags {
     uint256 public constant OWNER = 0x8000000000000000000000000000000000000000000000000000000000000000;
     uint256 public constant VETO = 0x4000000000000000000000000000000000000000000000000000000000000000;
 }
-
+//@>i this contract is used for admin privilidges and it uses 2 step owner 
+ 
 struct AdminRegistry {
     // The owner actually does not have any rights except the ability to assign rights to users.
     // Of course it can assign rights to itself.

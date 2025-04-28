@@ -30,7 +30,7 @@ contract SimplexDiamond is IDiamond {
         string memory name,
         string memory symbol
     ) {
-        //@>i msg.sender is owner of simplexDiamond
+        //@>i msg.sender is owner of simplexDiamond - maybe the protocol owner!
         AdminLib.initOwner(msg.sender);
 
         SimplexLib.init(name, symbol, facets.adjustor);

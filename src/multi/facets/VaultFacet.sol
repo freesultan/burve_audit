@@ -10,6 +10,7 @@ import {Timed} from "../../Timed.sol";
 /// Admin-related functions for interacting with the install Vaults. Primarily for migrations.
 /// @dev In the future we can upgrade this with a more rich set of rights to decentralize
 /// to multiple parties for vetoing migrations.
+//@>q what is a migration? 
 contract VaultFacet {
     /// We add a delay from when a new vault is added so users can withdraw positions if they dislike the vault.
     /// This acts as a safeguard against potentially malicious vaults. With locking, this keeps Burve safe from rugs.
@@ -30,7 +31,7 @@ contract VaultFacet {
 
     /// Add a backup vault for a token.
     function addVault(address token, address vault, VaultType vType) external {
-        AdminLib.validateOwner();
+        AdminLib.validateOwner();//@>i onlyowner can create vault
         // This validates the token is installed.
         VertexLib.newId(token);
         bytes memory entry = abi.encode(vault, vType);
@@ -75,7 +76,7 @@ contract VaultFacet {
         uint16 cid,
         uint256 amount
     ) external {
-        AdminLib.validateOwner();
+        AdminLib.validateOwner();//@>i onlyowner can tranfer balance between vaults
         VaultLib.transfer(fromVault, toVault, ClosureId.wrap(cid), amount);
     }
 

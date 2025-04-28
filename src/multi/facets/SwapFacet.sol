@@ -44,6 +44,7 @@ contract SwapFacet is ReentrancyGuardTransient {
     /// Attempted a swap smaller than the minimum.
     error BelowMinSwap(uint256 nominalSwapAttempted, uint256 minSwap);
 
+    //@>q what's the diff between readl and nomina value?
     /// Swap one token for another.
     /// @param amountSpecified The exact input when positive, the exact output when negative.
     /// @param amountLimit When exact input, the minimum amount out. When exact output, the maximum amount in.
@@ -57,6 +58,7 @@ contract SwapFacet is ReentrancyGuardTransient {
         uint256 amountLimit,
         uint16 _cid
     ) external nonReentrant returns (uint256 inAmount, uint256 outAmount) {
+        //@>q what does vertex do?
         // Validates the tokens.
         VertexId inVid = VertexLib.newId(inToken);
         VertexId outVid = VertexLib.newId(outToken);

@@ -15,6 +15,7 @@ contract VaultFacet {
     /// We add a delay from when a new vault is added so users can withdraw positions if they dislike the vault.
     /// This acts as a safeguard against potentially malicious vaults. With locking, this keeps Burve safe from rugs.
     /// 5 days was chosen as a reasonable time to broadcast to all our users and give them sufficient time to decide.
+    
     uint32 public constant ADD_DELAY = 5 days;
 
     event VaultInstalled(address token, address vault);

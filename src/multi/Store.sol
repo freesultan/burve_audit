@@ -13,9 +13,10 @@ import {Simplex} from "./Simplex.sol";
 import {Locker} from "./facets/LockFacet.sol";
 import {IAdjustor} from "../integrations/adjustor/IAdjustor.sol";
 
+
 struct Storage {
     AssetBook assets;
-    TokenRegistry tokenReg;
+    TokenRegistry tokenReg;//@>i all 16 tokens
     VaultStorage _vaults;
     Simplex simplex;
     Locker _locker;

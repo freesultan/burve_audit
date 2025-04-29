@@ -10,6 +10,7 @@ import {Store} from "../Store.sol";
 
 struct Reserve {
     // The shares we have for the balance we have in each vault.
+    //@>i MAX_TOKENS = 16
     uint256[MAX_TOKENS] shares;
 }
 

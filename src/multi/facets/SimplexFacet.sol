@@ -177,7 +177,7 @@ contract SimplexFacet {
     /// @dev Only callable by the contract owner.
     function addVertex(address token, address vault, VaultType vType) external {
         AdminLib.validateOwner();
-
+        //@>q why return value is not checked?
         TokenRegLib.register(token);
         Store.adjustor().cacheAdjustment(token);
 

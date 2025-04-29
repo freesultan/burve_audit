@@ -68,12 +68,17 @@ contract ValueFacet is ReentrancyGuardTransient {
         //@>i everyone can add value and become a LP
         if (value == 0) revert DeMinimisDeposit();
         require(bgtValue <= value, InsufficientValueForBgt(value, bgtValue));
+
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid);
+
+
         uint256[MAX_TOKENS] memory requiredNominal = c.addValue(
             value,
             bgtValue
         );
+
+        
         // Fetch balances
         TokenRegistry storage tokenReg = Store.tokenRegistry();
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
@@ -280,6 +285,8 @@ contract ValueFacet is ReentrancyGuardTransient {
     }
 
     /// Return the held value balance and earnings by an address in a given closure.
+    //@>q everyone can see others' assets in any closure
+    //@>i returns earnings & bgtEarnings for value,bgtValue
     function queryValue(
         address owner,
         uint16 closureId

@@ -2,32 +2,42 @@
 pragma solidity ^0.8.27;
 
 import {MultiSetupTest} from "./MultiSetup.u.sol";
-import {console2 as console} from "forge-std/console2.sol";
+import {console2} from "forge-std/console2.sol";
+import {console} from "forge-std/console.sol";
 import {ValueFacet} from "../../src/multi/facets/ValueFacet.sol";
 import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import {AssetBookImpl} from "../../src/multi/Asset.sol";
 import {MAX_TOKENS} from "../../src/multi/Token.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
+ 
 
 contract ValueFacetTest is MultiSetupTest {
     function setUp() public {
         vm.startPrank(owner);
-        _newDiamond();
-        _newTokens(4);
-        _fundAccount(alice);
+        _newDiamond();//@>i create a new diamond with all it's facets
+        _newTokens(4);//@>i create 4 new test tokens
+
+ 
+        _fundAccount(alice);//@>i fund and approve 1e30 of all tokens to address
         _fundAccount(bob);
         // Its annoying we have to fund first.
         _fundAccount(address(this));
         _fundAccount(owner);
+
+
         // So we have to redo the prank.
         vm.startPrank(owner);
+
+        //@>i simplexFacet.addClosure(cid, initValue, 0, 0)with zero basefee and zero protocolTake
+        //@>i all combinations of our 4 test tokens in 16 closures
         _initializeClosure(0xF, 100e18); // 1,2,3,4
         _initializeClosure(0xE, 100e18); // 2,3,4
         _initializeClosure(0xD, 100e18); // 1,3,4
         _initializeClosure(0xc, 1e12); // 3,4
         _initializeClosure(0xB, 100e18); // 1,2,4
         _initializeClosure(0xa, 1e12); // 2,4
-        _initializeClosure(0x9, 1e18); // 1,4
+        //@>i realneeded for each token calculated in simplexFacet and transfered from owner to SimplexFacet
+        _initializeClosure(0x9, 1e18); // 1,4 //@>i initial value for tokens 1,4 is 1e18 minted for owner
         _initializeClosure(0x8, 1e12); // 4
         _initializeClosure(0x7, 100e18); // 1,2,3
         _initializeClosure(0x6, 1e12); // 2,3
@@ -37,6 +47,10 @@ contract ValueFacetTest is MultiSetupTest {
         _initializeClosure(0x2, 1e12); // 2
         _initializeClosure(0x1, 1e12); // 1
         vm.stopPrank();
+
+        logAllBalances("after funding in setup");
+
+
     }
 
     function getBalances(
@@ -56,18 +70,77 @@ contract ValueFacetTest is MultiSetupTest {
         }
     }
 
+    function logAllBalances(string memory label) public view {
+        console.log(string.concat("\n=== Balances at: ", label, " ==="));
+        
+        uint256[4] memory testContractBal = getBalances(address(this));
+        uint256[4] memory aliceBal = getBalances(alice);
+        uint256[4] memory vault0Bal = getBalances(address(vaults[0]));
+        uint256[4] memory vault1Bal = getBalances(address(vaults[1]));
+        uint256[4] memory vault2Bal = getBalances(address(vaults[2]));
+        uint256[4] memory vault3Bal = getBalances(address(vaults[3]));
+
+        console.log("Test Contract Balances:");
+        for(uint i = 0; i < 4; i++) {
+            console.log("Token %d: %s", i, vm.toString(testContractBal[i]));
+        }
+
+        console.log("\nAlice Balances:");
+        for(uint i = 0; i < 4; i++) {
+            console.log("Token %d: %s", i, vm.toString(aliceBal[i]));
+        }
+
+        console.log("\nVault0 Balances:");
+             console.log("Token %s", vm.toString(vault0Bal[0]));
+         
+
+        console.log("\nVault1 Balances:");
+             console.log("Token  %s",vm.toString(vault1Bal[1]));
+       
+
+        console.log("\nVault2 Balances:");
+             console.log("Token %s", vm.toString(vault2Bal[2]));
+        
+
+        console.log("\nVault3 Balances:");
+        
+            console.log("Token  %s",vm.toString(vault3Bal[3]));
+         
+
+        // Value position
+       (uint256 value, uint256 bgtValue, , ) = valueFacet.queryValue(alice, 0x9);
+        console.log("\nAlice Position:");
+        console.log("Total Value: %s", vm.toString(value));
+       console.log("BGT Value: %s", vm.toString(bgtValue));
+    }
+        
     function testAddRemoveValue() public {
+
+        logAllBalances("\n initial balances:");
+
         // Add and remove value will fund using multiple tokens and has no size limitations like the single methods do.
         uint256[4] memory initBalances = getBalances(address(this));
-        valueFacet.addValue(alice, 0x9, 1e28, 5e27);
+        //@>q everyone can add value for everyone. possible calculation disruption
+        //@>i 5e27: bgtValue (part of total value that earns BGT) + Test contract  will transfer 5e27 to every closures vault and a 5e27 position is opened for Alice
+        valueFacet.addValue(alice, 0x9, 1e28, 5e27);//@>i reciepent,cid,value,bgt value
+
         (uint256 value, uint256 bgtValue, , ) = valueFacet.queryValue(
             alice,
             0x9
         );
+
+        logAllBalances("\n after add value to alice: ");
+
         assertEq(value, 1e28);
         assertEq(bgtValue, 5e27);
+
+        //@>i 5e27 bgt earning Value + 5e27 regular earning Value ()
+        //  - Regular value position (5e27) earns fees in the pool tokens
+        //  - BGT value position (5e27) converts earned fees into BGT token
+
         uint256[4] memory currentBalances = getBalances(address(this));
         int256[4] memory diffs = diffBalances(initBalances, currentBalances);
+
         assertEq(diffs[0], 5e27);
         assertEq(diffs[1], 0);
         assertEq(diffs[2], 0);
@@ -78,8 +151,14 @@ contract ValueFacetTest is MultiSetupTest {
         valueFacet.removeValue(alice, 0x9, 5e27, 1e27);
         // But alice does.
         initBalances = getBalances(alice);
+
+
         vm.startPrank(alice);
-        valueFacet.removeValue(alice, 0x9, 5e27, 5e27);
+
+        valueFacet.removeValue(alice, 0x9, 5e27, 0);
+
+        logAllBalances("\n   balances after alice remove 5e27:");
+
         // But she can't remove more bgt value now even though she has more value.
         vm.expectRevert();
         valueFacet.removeValue(alice, 0x9, 5e27, 1);
@@ -88,10 +167,15 @@ contract ValueFacetTest is MultiSetupTest {
         // And now she's out.
         vm.expectRevert();
         valueFacet.removeValue(alice, 0x9, 1, 0);
+
         vm.stopPrank();
+
+
         currentBalances = getBalances(alice);
         diffs = diffBalances(currentBalances, initBalances);
-        assertApproxEqAbs(diffs[0], 5e27, 2, "0");
+
+
+        assertApproxEqAbs(diffs[0], 5e27, 2, "0"); //@>i  with at most 2 units diff is ok
         assertEq(diffs[1], 0);
         assertEq(diffs[2], 0);
         assertApproxEqAbs(diffs[3], 5e27, 2, "3");

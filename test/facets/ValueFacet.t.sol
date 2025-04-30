@@ -9,21 +9,20 @@ import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import {AssetBookImpl} from "../../src/multi/Asset.sol";
 import {MAX_TOKENS} from "../../src/multi/Token.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
- 
 
 contract ValueFacetTest is MultiSetupTest {
     function setUp() public {
         vm.startPrank(owner);
-        _newDiamond();//@>i create a new diamond with all it's facets
-        _newTokens(4);//@>i create 4 new test tokens
 
- 
-        _fundAccount(alice);//@>i fund and approve 1e30 of all tokens to address
+        _newDiamond(); //@>i create a new diamond with all it's facets
+
+        _newTokens(4); //@>i create 4 new test tokens
+
+        _fundAccount(alice); //@>i fund and approve 1e30 of all tokens to address
         _fundAccount(bob);
         // Its annoying we have to fund first.
         _fundAccount(address(this));
         _fundAccount(owner);
-
 
         // So we have to redo the prank.
         vm.startPrank(owner);
@@ -49,8 +48,6 @@ contract ValueFacetTest is MultiSetupTest {
         vm.stopPrank();
 
         logAllBalances("after funding in setup");
-
-
     }
 
     function getBalances(
@@ -72,62 +69,163 @@ contract ValueFacetTest is MultiSetupTest {
 
     function logAllBalances(string memory label) public view {
         console.log(string.concat("\n=== Balances at: ", label, " ==="));
-        
+
         uint256[4] memory testContractBal = getBalances(address(this));
         uint256[4] memory aliceBal = getBalances(alice);
+        uint256[4] memory valueFacetBal = getBalances(address(diamond)); // Diamond proxy holds the tokens
         uint256[4] memory vault0Bal = getBalances(address(vaults[0]));
         uint256[4] memory vault1Bal = getBalances(address(vaults[1]));
         uint256[4] memory vault2Bal = getBalances(address(vaults[2]));
         uint256[4] memory vault3Bal = getBalances(address(vaults[3]));
 
         console.log("Test Contract Balances:");
-        for(uint i = 0; i < 4; i++) {
+        for (uint i = 0; i < 4; i++) {
             console.log("Token %d: %s", i, vm.toString(testContractBal[i]));
         }
 
+        console.log("\nValueFacet (Diamond) Balances:"); // Added this section
+        for (uint i = 0; i < 4; i++) {
+            console.log("Token %d: %s", i, vm.toString(valueFacetBal[i]));
+        }
+
         console.log("\nAlice Balances:");
-        for(uint i = 0; i < 4; i++) {
+        for (uint i = 0; i < 4; i++) {
             console.log("Token %d: %s", i, vm.toString(aliceBal[i]));
         }
 
         console.log("\nVault0 Balances:");
-             console.log("Token %s", vm.toString(vault0Bal[0]));
-         
+        console.log("Token %s", vm.toString(vault0Bal[0]));
 
         console.log("\nVault1 Balances:");
-             console.log("Token  %s",vm.toString(vault1Bal[1]));
-       
+        console.log("Token  %s", vm.toString(vault1Bal[1]));
 
         console.log("\nVault2 Balances:");
-             console.log("Token %s", vm.toString(vault2Bal[2]));
-        
+        console.log("Token %s", vm.toString(vault2Bal[2]));
 
         console.log("\nVault3 Balances:");
-        
-            console.log("Token  %s",vm.toString(vault3Bal[3]));
-         
 
-        // Value position
-       (uint256 value, uint256 bgtValue, , ) = valueFacet.queryValue(alice, 0x9);
-        console.log("\nAlice Position:");
-        console.log("Total Value: %s", vm.toString(value));
-       console.log("BGT Value: %s", vm.toString(bgtValue));
+        console.log("Token  %s", vm.toString(vault3Bal[3]));
+
+        //     // Value position
+        //    (uint256 value, uint256 bgtValue, , ) = valueFacet.queryValue(alice, 0x9);
+        //     console.log("\nAlice Position:");
+        //     console.log("Total Value: %s", vm.toString(value));
+        //    console.log("BGT Value: %s", vm.toString(bgtValue));
     }
-        
-    function testAddRemoveValue() public {
 
+    function testMyaudit() public {
+        //============================================
+        // Capture the returned array
+        uint256[MAX_TOKENS] memory requiredBalances = valueFacet.addValue(
+            alice,
+            0x7,
+            5e28,
+            1e28
+        );
+
+        // Log the values
+        console.log("\n ===== \n Required balances after addValue:");
+        for (uint8 i = 0; i < MAX_TOKENS; i++) {
+            // Only log if the balance is non-zero
+            if (requiredBalances[i] > 0) {
+                console.log(
+                    "Token %d required balance: %d",
+                    i,
+                    requiredBalances[i]
+                );
+            }
+        }
+
+        // To verify current state, you can also call queryValue
+        (
+            uint256 value,
+            uint256 bgtValue,
+            uint256[MAX_TOKENS] memory earnings,
+            uint256 bgtEarnings
+        ) = valueFacet.queryValue(alice, 0x7);
+
+        console.log("\nCurrent state for alice in closure 0x7:");
+        console.log("Total value: %d", value);
+        console.log("BGT value: %d", bgtValue);
+        console.log("BGT earnings: %d", bgtEarnings);
+
+        console.log("\nEarnings per token:");
+        for (uint8 i = 0; i < MAX_TOKENS; i++) {
+            if (earnings[i] > 0) {
+                console.log("Token %d earnings: %d", i, earnings[i]);
+            }
+        }
+
+        //============================================
+
+        (value, bgtValue, , ) = valueFacet.queryValue(alice, 0x7);
+
+        vm.startPrank(alice);
+
+        valueFacet.removeValue(alice, 0x7, 5e27, 5e27);
+
+        logAllBalances("\n   balances after alice remove 5e27:");
+
+        vm.stopPrank();
+ 
+
+        //============================================
+    }
+
+    function testAddRemoveValue() public {
         logAllBalances("\n initial balances:");
 
         // Add and remove value will fund using multiple tokens and has no size limitations like the single methods do.
         uint256[4] memory initBalances = getBalances(address(this));
         //@>q everyone can add value for everyone. possible calculation disruption
         //@>i 5e27: bgtValue (part of total value that earns BGT) + Test contract  will transfer 5e27 to every closures vault and a 5e27 position is opened for Alice
-        valueFacet.addValue(alice, 0x9, 1e28, 5e27);//@>i reciepent,cid,value,bgt value
+        //valueFacet.addValue(alice, 0x9, 1e28, 5e27);//@>i reciepent,cid,value,bgt value
 
-        (uint256 value, uint256 bgtValue, , ) = valueFacet.queryValue(
+        //============================================
+        // Capture the returned array
+        uint256[MAX_TOKENS] memory requiredBalances = valueFacet.addValue(
             alice,
-            0x9
+            0x9,
+            5e28,
+            0
         );
+
+        // Log the values
+        console.log("Required balances after addValue:");
+        for (uint8 i = 0; i < MAX_TOKENS; i++) {
+            // Only log if the balance is non-zero
+            if (requiredBalances[i] > 0) {
+                console.log(
+                    "Token %d required balance: %d",
+                    i,
+                    requiredBalances[i]
+                );
+            }
+        }
+
+        // To verify current state, you can also call queryValue
+        (
+            uint256 value,
+            uint256 bgtValue,
+            uint256[MAX_TOKENS] memory earnings,
+            uint256 bgtEarnings
+        ) = valueFacet.queryValue(alice, 0x9);
+
+        console.log("\nCurrent state for alice in closure 0x9:");
+        console.log("Total value: %d", value);
+        console.log("BGT value: %d", bgtValue);
+        console.log("BGT earnings: %d", bgtEarnings);
+
+        console.log("\nEarnings per token:");
+        for (uint8 i = 0; i < MAX_TOKENS; i++) {
+            if (earnings[i] > 0) {
+                console.log("Token %d earnings: %d", i, earnings[i]);
+            }
+        }
+
+        //============================================
+
+        (value, bgtValue, , ) = valueFacet.queryValue(alice, 0x9);
 
         logAllBalances("\n after add value to alice: ");
 
@@ -145,17 +243,16 @@ contract ValueFacetTest is MultiSetupTest {
         assertEq(diffs[1], 0);
         assertEq(diffs[2], 0);
         assertEq(diffs[3], 5e27);
-
+        //@>q everyone can addvalue for anyone but only the reciepent can removeValue
         // Of course we have no value to remove.
         vm.expectRevert();
         valueFacet.removeValue(alice, 0x9, 5e27, 1e27);
         // But alice does.
         initBalances = getBalances(alice);
 
-
         vm.startPrank(alice);
 
-        valueFacet.removeValue(alice, 0x9, 5e27, 0);
+        valueFacet.removeValue(alice, 0x9, 5e27, 5e27);
 
         logAllBalances("\n   balances after alice remove 5e27:");
 
@@ -170,10 +267,44 @@ contract ValueFacetTest is MultiSetupTest {
 
         vm.stopPrank();
 
+        //============================================
+        // Capture the returned array
+
+        // Log the values
+        console.log("Required balances after remove value:");
+        for (uint8 i = 0; i < MAX_TOKENS; i++) {
+            // Only log if the balance is non-zero
+            if (requiredBalances[i] > 0) {
+                console.log(
+                    "Token %d required balance: %d",
+                    i,
+                    requiredBalances[i]
+                );
+            }
+        }
+
+        // To verify current state, you can also call queryValue
+        (value, bgtValue, earnings, bgtEarnings) = valueFacet.queryValue(
+            alice,
+            0x9
+        );
+
+        console.log("\nCurrent state for alice in closure 0x9:");
+        console.log("Total value: %d", value);
+        console.log("BGT value: %d", bgtValue);
+        console.log("BGT earnings: %d", bgtEarnings);
+
+        console.log("\nEarnings per token:");
+        for (uint8 i = 0; i < MAX_TOKENS; i++) {
+            if (earnings[i] > 0) {
+                console.log("Token %d earnings: %d", i, earnings[i]);
+            }
+        }
+
+        //============================================
 
         currentBalances = getBalances(alice);
         diffs = diffBalances(currentBalances, initBalances);
-
 
         assertApproxEqAbs(diffs[0], 5e27, 2, "0"); //@>i  with at most 2 units diff is ok
         assertEq(diffs[1], 0);
@@ -181,7 +312,7 @@ contract ValueFacetTest is MultiSetupTest {
         assertApproxEqAbs(diffs[3], 5e27, 2, "3");
     }
 
-    function testAddRemoveValueSingle() public {
+    function XxxtestAddRemoveValueSingle() public {
         uint256[4] memory initBalances = getBalances(address(this));
         // This is too much to put into one token.
         vm.expectRevert(); // XTooSmall

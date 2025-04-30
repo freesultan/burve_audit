@@ -180,7 +180,13 @@ library VaultProxyImpl {
         ClosureId cid,
         uint256 amount
     ) internal {
-        self.active.deposit(cid, amount);
+        self.active.deposit(cid, amount); //@>i Calls deposit on the active vault
+
+        /*
+            VaultProxy.deposit() - Entry point that dispatches to active vault
+            VaultE4626.deposit() - Updates internal accounting and queues actual deposit
+            VaultE4626.commit() - Performs actual token transfer and vault deposit
+        */
     }
 
     /// Withdraw from the active vault, and then the backup if we can't fulfill it entirely.

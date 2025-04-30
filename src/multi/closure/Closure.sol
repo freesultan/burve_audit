@@ -708,6 +708,7 @@ library ClosureImpl {
     /// Called before any value changes, swaps, or fee collections.
     function trimAllBalances(Closure storage self) internal {
         uint256 nonBgtValueStaked = self.valueStaked - self.bgtValueStaked;
+        //@>i go through all vertices of this closure
         for (
             VertexId vIter = VertexLib.minId();
             !vIter.isStop();
@@ -732,6 +733,7 @@ library ClosureImpl {
         uint8 idx = vid.idx();
         // Roundup the balance we need.
         uint256 realBalance = AdjustorLib.toReal(idx, self.balances[idx], true);
+
         (uint256 earnings, uint256 bgtReal) = Store.vertex(vid).trimBalance(
             self.cid,
             realBalance,
@@ -754,6 +756,8 @@ library ClosureImpl {
                     self.bgtValueStaked;
             }
         }
+
+
     }
 
     function viewTrimAll(

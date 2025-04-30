@@ -70,6 +70,7 @@ contract BGTExchanger is IBGTExchanger {
 
     /// @inheritdoc IBGTExchanger
     function getOwed(address caller) public view returns (uint256 _owed) {
+        //@>i the amount of bgt that exchanger owed to caller
         _owed = owed[caller];
         if (address(backupEx) != address(0)) {
             _owed += backupEx.getOwed(caller);
@@ -82,7 +83,9 @@ contract BGTExchanger is IBGTExchanger {
         uint256 _owed = getOwed(msg.sender);
         if (bgtAmount == 0) return;
         if (_owed < bgtAmount) revert InsufficientOwed();
+
         withdrawn[msg.sender] += bgtAmount;
+
         TransferHelper.safeTransfer(bgtToken, recipient, bgtAmount);
     }
 

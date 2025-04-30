@@ -113,7 +113,7 @@ library VertexImpl {
     ) internal {
         require(!self._isLocked, VertexLocked(self.vid));
         VaultProxy memory vProxy = VaultLib.getProxy(self.vid);
-        vProxy.deposit(cid, amount);
+        vProxy.deposit(cid, amount); //@>i transfers token to the vault
         vProxy.commit();
     }
 

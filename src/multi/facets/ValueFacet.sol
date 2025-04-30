@@ -55,15 +55,16 @@ contract ValueFacet is ReentrancyGuardTransient {
     /// Add exactly this much value to the given closure by providing all tokens involved.
     /// @dev Use approvals to limit slippage, or you can wrap this with a helper contract
     /// which validates the requiredBalances are small enough according to some logic.
+    //@>q what does it mean to "Use approvals to limit slippage"
     function addValue(
-        address recipient,
+        address recipient,//@>i address recipient - Who receives the LP position
         uint16 _closureId,
         uint128 value,
         uint128 bgtValue
     )
         external
         nonReentrant
-        returns (uint256[MAX_TOKENS] memory requiredBalances)
+        returns (uint256[MAX_TOKENS] memory requiredBalances) //@>i requiredBalances = value / num of tokens in closure
     {
         //@>i everyone can add value and become a LP
         if (value == 0) revert DeMinimisDeposit();
@@ -72,15 +73,17 @@ contract ValueFacet is ReentrancyGuardTransient {
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid);
 
-
+        //@>i closure.addvalue()
         uint256[MAX_TOKENS] memory requiredNominal = c.addValue(
             value,
             bgtValue
         );
 
-        
+
         // Fetch balances
-        TokenRegistry storage tokenReg = Store.tokenRegistry();
+        TokenRegistry storage tokenReg = Store.tokenRegistry();//@>i get  all tokens
+
+        //@>i for every token of this closure: transfer realNeeded from LP to vaultFaucet
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             if (!cid.contains(i)) continue; // Irrelevant token.
             address token = tokenReg.tokens[i];
@@ -91,14 +94,17 @@ contract ValueFacet is ReentrancyGuardTransient {
             );
             requiredBalances[i] = realNeeded;
             TransferHelper.safeTransferFrom(
-                token,
+               token,
                 msg.sender,
                 address(this),
                 realNeeded
-            );
+            ); 
+            //@>i vertex.deposit() => vaultProxy.deposit() => vault.deposit() transfer token from valueFacet to vault
             Store.vertex(VertexLib.newId(i)).deposit(cid, realNeeded);
         }
 
+
+        //@> track and updating the accounting for the user's position
         Store.assets().add(recipient, cid, value, bgtValue);
     }
 
@@ -326,6 +332,7 @@ contract ValueFacet is ReentrancyGuardTransient {
         bgtEarnings += FullMath.mulX128(bpvX128, bgtValue, false);
     }
 
+    //@>i evereyone can collect earnings for anyone
     function collectEarnings(
         address recipient,
         uint16 closureId
@@ -338,26 +345,34 @@ contract ValueFacet is ReentrancyGuardTransient {
     {
         ClosureId cid = ClosureId.wrap(closureId);
         // Catch up on rehypothecation gains before we claim fees.
-        Store.closure(cid).trimAllBalances();
+        Store.closure(cid).trimAllBalances(); 
+
+
         uint256[MAX_TOKENS] memory collectedShares;
+        //@>audit msg.sender is used for fee claiming but recipient for receiving tokens
         (collectedShares, collectedBgt) = Store.assets().claimFees(
             msg.sender,
             cid
         );
         if (collectedBgt > 0)
+            //@>i bgtExchanger distributes bgt rewards
+            //@>q who is the msg.sender when we call bgtExchanger withdraw function(), vaultFaucet or caller?
             IBGTExchanger(Store.simplex().bgtEx).withdraw(
                 recipient,
                 collectedBgt
             );
         TokenRegistry storage tokenReg = Store.tokenRegistry();
+        //@>q can this loop hit gas limits? can anyone increase the cost of the loop? can attacker do sth to block users value and earnings?
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             if (collectedShares[i] > 0) {
                 VertexId vid = VertexLib.newId(i);
-                // Real amounts.
+                // Real amounts. //@>q does this have slippage check? how?
                 collectedBalances[i] = ReserveLib.withdraw(
                     vid,
                     collectedShares[i]
                 );
+
+                //@>q can each of these token transfers fail and make the whole transfer to fail?
                 TransferHelper.safeTransfer(
                     tokenReg.tokens[i],
                     recipient,

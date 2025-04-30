@@ -205,6 +205,7 @@ contract SimplexFacet {
         Closure storage c = Store.load().closures[cid];
 
         uint256 initTarget = Store.simplex().initTarget;
+
         if (startingTarget < initTarget) {
             revert InsufficientStartingTarget(startingTarget, initTarget);
         }
@@ -217,6 +218,7 @@ contract SimplexFacet {
         );
 
         TokenRegistry storage tokenReg = Store.tokenRegistry();
+        
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             if (!cid.contains(i)) continue;
 

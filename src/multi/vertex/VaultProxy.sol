@@ -95,6 +95,7 @@ library VaultLib {
     /// Move an amount of tokens from one vault to another.
     /// @dev This implicitly requires that the two vaults are based on the same token
     /// and there can only be two vaults for a given token.
+    //@>q there is only two vaults for any of those 16 tokens and there is no check for from and to vaults here?
     function transfer(
         address fromVault,
         address toVault,
@@ -171,6 +172,8 @@ struct VaultProxy {
 
 using VaultProxyImpl for VaultProxy global;
 
+
+//@>i vault proxy is used to interact with active and backup vault for each vertex
 library VaultProxyImpl {
     error VaultTypeUnrecognized(VaultType);
 

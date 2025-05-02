@@ -42,6 +42,7 @@ library ReserveLib {
         // If someone tries to share inflate attack this, they'd have to donate to the underlying vault,
         // which then splits the donation across existing deposits from other people using the vault,
         // including the other closures. So there's no way to inflate shares here.
+        //@>q is there a way to inflate attack?
         shares = (balance == 0)
             ? amount * SHARE_RESOLUTION
             : (amount * reserve.shares[idx]) / balance; // No need for mulDiv.

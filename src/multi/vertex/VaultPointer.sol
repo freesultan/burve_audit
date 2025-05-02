@@ -4,6 +4,7 @@ pragma solidity ^0.8.27;
 import {ClosureId} from "../closure/Id.sol";
 import {VaultE4626} from "./E4626.sol";
 
+//@>i now the protocol only suports tokenized vaults 4626 (E4626)
 /// The types of vaults we can handle.
 enum VaultType {
     UnImplemented,
@@ -12,7 +13,7 @@ enum VaultType {
 
 // The number of temporary variables used by vaults. See VaultTemp.
 uint256 constant NUM_VAULT_VARS = 4;
-
+//@>i temporary varibales used by vault calculations
 /// An in-memory struct for holding temporary variables used by the vault implementations
 struct VaultTemp {
     uint256[NUM_VAULT_VARS] vars;

@@ -112,18 +112,24 @@ library AssetBookImpl {
         uint256 value, // Total
         uint256 bgtValue // BGT specific
     ) internal {
+
         collect(self, owner, cid);
+
         Asset storage a = self.assets[owner][cid];
+
+
         require(value >= bgtValue, InsufficientValue(value, bgtValue));
         require(value <= a.value, InsufficientValue(a.value, value));
         require(
             bgtValue <= a.bgtValue,
             InsufficientBgtValue(a.bgtValue, bgtValue)
         );
+
         unchecked {
             a.value -= value;
             a.bgtValue -= bgtValue;
         }
+        
         require(
             a.value >= a.bgtValue,
             InsufficientNonBgtValue(a.value, a.bgtValue)
@@ -180,12 +186,15 @@ library AssetBookImpl {
         returns (uint256[MAX_TOKENS] memory feeBalances, uint256 bgtBalance)
     {
         collect(self, recipient, cid);
+
         Asset storage a = self.assets[recipient][cid];
+
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             feeBalances[i] = a.collectedBalances[i];
             a.collectedBalances[i] = 0;
         }
         bgtBalance = a.bgtBalance;
         a.bgtBalance = 0;
+
     }
 }

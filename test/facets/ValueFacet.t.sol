@@ -47,7 +47,7 @@ contract ValueFacetTest is MultiSetupTest {
         _initializeClosure(0x1, 1e12); // 1
         vm.stopPrank();
 
-        logAllBalances("after funding in setup");
+        //logAllBalances("=========== after funding in setup==========");
     }
 
     function getBalances(
@@ -68,10 +68,11 @@ contract ValueFacetTest is MultiSetupTest {
     }
 
     function logAllBalances(string memory label) public view {
-        console.log(string.concat("\n=== Balances at: ", label, " ==="));
+        console.log(string.concat("\n=== Balances: ", label, " ==="));
 
         uint256[4] memory testContractBal = getBalances(address(this));
         uint256[4] memory aliceBal = getBalances(alice);
+        uint256[4] memory ownerBal = getBalances(owner);
         uint256[4] memory valueFacetBal = getBalances(address(diamond)); // Diamond proxy holds the tokens
         uint256[4] memory vault0Bal = getBalances(address(vaults[0]));
         uint256[4] memory vault1Bal = getBalances(address(vaults[1]));
@@ -93,24 +94,29 @@ contract ValueFacetTest is MultiSetupTest {
             console.log("Token %d: %s", i, vm.toString(aliceBal[i]));
         }
 
-        console.log("\nVault0 Balances:");
-        console.log("Token %s", vm.toString(vault0Bal[0]));
+        console.log("\nOwner Balances:");
+        for (uint i = 0; i < 4; i++) {
+            console.log("Token %d: %s", i, vm.toString(ownerBal[i]));
+        }
 
-        console.log("\nVault1 Balances:");
-        console.log("Token  %s", vm.toString(vault1Bal[1]));
+        console.log("\nVault0 Balances  %s", vm.toString(vault0Bal[0]));
+         
 
-        console.log("\nVault2 Balances:");
-        console.log("Token %s", vm.toString(vault2Bal[2]));
+        console.log("\nVault1 Balances %s", vm.toString(vault1Bal[1]));
+        console.log("\nVault2 Balances %s", vm.toString(vault2Bal[2]));
+        console.log("\nVault3 Balances %s", vm.toString(vault3Bal[3]));
+         
+ 
 
-        console.log("\nVault3 Balances:");
-
-        console.log("Token  %s", vm.toString(vault3Bal[3]));
-
-        //     // Value position
-        //    (uint256 value, uint256 bgtValue, , ) = valueFacet.queryValue(alice, 0x9);
-        //     console.log("\nAlice Position:");
-        //     console.log("Total Value: %s", vm.toString(value));
-        //    console.log("BGT Value: %s", vm.toString(bgtValue));
+            // Value position
+           (uint256 value, uint256 bgtValue,uint256[MAX_TOKENS] memory earnings ,uint256 bgtEarnings ) = valueFacet.queryValue(address(this), 0xA);
+           console.log("\n Test contract Position - query value:");
+           console.log("Total Value: %s", vm.toString(value));
+           console.log("BGT Value: %s", vm.toString(bgtValue));
+           for(uint i = 0; i< 16; i++) {
+                console.log("Token earning %d: %s", i, vm.toString(earnings[i]));
+           }
+           console.log("BGT Earning: %s", vm.toString(bgtEarnings));
     }
 
     function testMyaudit() public {
@@ -312,7 +318,7 @@ contract ValueFacetTest is MultiSetupTest {
         assertApproxEqAbs(diffs[3], 5e27, 2, "3");
     }
 
-    function XxxtestAddRemoveValueSingle() public {
+    function testAddRemoveValueSingle() public {
         uint256[4] memory initBalances = getBalances(address(this));
         // This is too much to put into one token.
         vm.expectRevert(); // XTooSmall
@@ -567,32 +573,62 @@ contract ValueFacetTest is MultiSetupTest {
     /// TODO: Test  that add n* value split among n tokens is the same as m*value split among m tokens.
 
     function testFeeEarn() public {
+
         uint256 oneX128 = 1 << 128;
+
         vm.prank(owner);
+
         simplexFacet.setClosureFees(0xA, uint128(oneX128 / 10000), 0); // One basis point. Realistic.
+
         valueFacet.addValue(address(this), 0xA, 1e12, 0); // tokens 1 and 3.
+
         (
             uint256 valueStaked,
             ,
             uint256[MAX_TOKENS] memory earnings,
             uint256 bgtEarnings
         ) = valueFacet.queryValue(address(this), 0xA);
+
+
+        logAllBalances("balances after owner add 1e12 to test contract: ");
+
         assertEq(valueStaked, 1e12);
         assertEq(earnings[1], 0);
         assertEq(earnings[3], 0);
         assertEq(bgtEarnings, 0);
+
+
         // Collect swap fees.
-        swapFacet.swap(address(this), tokens[1], tokens[3], 1e10, 0, 0xA);
+        (uint256 inAmount , uint256 outAmount) = swapFacet.swap(address(this), tokens[1], tokens[3], 1e10, 0, 0xA);
+
+
+        // Add log after swap
+            console.log("Actual Input Amount: %d", inAmount);
+            console.log("Output Amount Received: %d", outAmount);
+   
+
         (, , earnings, bgtEarnings) = valueFacet.queryValue(address(this), 0xA);
+
+
+        logAllBalances("after swap ");
+
         assertEq(bgtEarnings, 0);
         assertGt(earnings[1], 0);
         assertEq(earnings[3], 0);
+
+
         uint256 earnings1 = earnings[1];
+        
         // Collect fees from single adds
         valueFacet.addValueSingle(alice, 0xA, 3e12, 0, tokens[1], 0);
+
         (, , earnings, bgtEarnings) = valueFacet.queryValue(address(this), 0xA);
+
+        logAllBalances("after alic add value to token[1]");
+
         // The original position has earned even more fees!
         assertGt(earnings[1], earnings1);
+
         earnings1 = earnings[1];
         // Also sends more fees to the assets.
         valueFacet.addSingleForValue(alice, 0xA, tokens[1], 6e12, 1 << 255, 0);
@@ -614,6 +650,8 @@ contract ValueFacetTest is MultiSetupTest {
             uint256[MAX_TOKENS] memory collectedBalances,
             uint256 collectedBgt
         ) = valueFacet.collectEarnings(address(this), 0xA);
+
+
         uint256[4] memory finalBalances = getBalances(address(this));
         int256[4] memory diffs = diffBalances(finalBalances, initBalances);
         assertEq(collectedBgt, 0);
@@ -652,4 +690,211 @@ contract ValueFacetTest is MultiSetupTest {
         assertEq(earnings[1], 0);
         assertEq(bgtEarnings, 0);
     }
+
+
+
+    function testMyauditFeeEarn() public {
+
+        uint256 oneX128 = 1 << 128;
+
+        vm.prank(owner);
+
+        simplexFacet.setClosureFees(0xA, uint128(oneX128 / 10000), 0); // One basis point. Realistic.
+
+        valueFacet.addValue(address(this), 0xA, 1e12, 0); // tokens 1 and 3.
+
+        (
+            uint256 valueStaked,
+            uint256 bgtValueStaked,
+            uint256[MAX_TOKENS] memory earnings,
+            uint256 bgtEarnings
+        ) = valueFacet.queryValue(address(this), 0xA);
+
+        console.log("\n Test contract Position after testcontract addvalue to testcontract - query value:");
+        console.log("Total Value staked: %s", vm.toString(valueStaked));
+        console.log("BGT Value staked: %s", vm.toString(bgtValueStaked));
+        for(uint i = 0; i< 16; i++) {
+            console.log("Token earning %d: %s", i, vm.toString(earnings[i]));
+        }
+        console.log("BGT Earning: %s", vm.toString(bgtEarnings));
+
+
+        // Collect swap fees.
+        (uint256 inAmount , uint256 outAmount) = swapFacet.swap(address(this), tokens[1], tokens[3], 1e10, 0, 0xA);
+
+
+        // Add log after swap
+            console.log("\n Test contract after testcontract swap 1e10 token[1] with token[4] :");
+            console.log("Actual Input Amount: %d", inAmount);
+            console.log("Output Amount Received: %d", outAmount);
+   
+
+        (valueStaked, bgtValueStaked, earnings, bgtEarnings) = valueFacet.queryValue(address(this), 0xA);
+
+        console.log("\n Test contract Position after testcontract swap 1e10 token[1] with token[4] :- query value:");
+        console.log("Total Value: %s", vm.toString(valueStaked));
+        console.log("BGT Value: %s", vm.toString(bgtValueStaked));
+        for(uint i = 0; i< 16; i++) {
+            console.log("Token earning %d: %s", i, vm.toString(earnings[i]));
+        }
+        console.log("BGT Earning: %s", vm.toString(bgtEarnings));
+ 
+ 
+        
+        // Collect fees from single adds
+        valueFacet.addValueSingle(alice, 0xA, 3e12, 0, tokens[1], 0);
+
+        (valueStaked, bgtValueStaked, earnings, bgtEarnings) = valueFacet.queryValue(address(this), 0xA);
+
+
+        console.log("\n Test contract Position after testcontract add 3e12 token[1] for alice :- query value:");
+        console.log("Total Value: %s", vm.toString(valueStaked));
+        console.log("BGT Value: %s", vm.toString(bgtValueStaked));
+        for(uint i = 0; i< 16; i++) {
+            console.log("Token earning %d: %s", i, vm.toString(earnings[i]));
+        }
+        console.log("BGT Earning: %s", vm.toString(bgtEarnings));
+
+
+        
+  
+        // Also sends more fees to the assets.
+        valueFacet.addSingleForValue(alice, 0xA, tokens[1], 6e12, 1 << 255, 0);
+        (valueStaked, bgtValueStaked, earnings, bgtEarnings) = valueFacet.queryValue(address(this), 0xA);
+
+        
+        console.log("\n Test contract Position after testcontract addsingleforvalue 6e12 token[1] for alice :- query value:");
+        console.log("Total Value: %s", vm.toString(valueStaked));
+        console.log("BGT Value: %s", vm.toString(bgtValueStaked));
+        for(uint i = 0; i< 16; i++) {
+            console.log("Token earning %d: %s", i, vm.toString(earnings[i]));
+        }
+        console.log("BGT Earning: %s", vm.toString(bgtEarnings));
+
+
+
+        // We should also collect fees from rehypothecation gains.
+        MockERC20(tokens[1]).mint(address(vaults[1]), 3e12);
+        (valueStaked, bgtValueStaked, earnings, bgtEarnings) = valueFacet.queryValue(address(this), 0xA);
+         
+
+
+        console.log("\n Test contract Position after testcontract mint 3e12 token[1] for vault[1]:- query value:");
+        console.log("Total Value: %s", vm.toString(valueStaked));
+        console.log("BGT Value: %s", vm.toString(bgtValueStaked));
+        for(uint i = 0; i< 16; i++) {
+            console.log("Token earning %d: %s", i, vm.toString(earnings[i]));
+        }
+        console.log("BGT Earning: %s", vm.toString(bgtEarnings));
+
+
+        // Now check that the query reported earnings are accurate with respect to our actual collect.
+        uint256[4] memory initBalances = getBalances(address(this));
+        (
+            uint256[MAX_TOKENS] memory collectedBalances,
+            uint256 collectedBgt
+        ) = valueFacet.collectEarnings(address(this), 0xA);
+
+
+
+        console.log("\n Test contract earnings after testcontract add 3e12 token[1] for alice :- colletc earnings ");
+         
+        for(uint i = 0; i< 16; i++) {
+            console.log("Token earning %d: %s", i, vm.toString(collectedBalances[i]));
+        }
+        console.log("collected BGT: %s", vm.toString(collectedBgt));
+ 
+
+        // Now we add some value with bgtValue.
+        valueFacet.addValue(address(this), 0xA, 5e12, 4e12);
+        (valueStaked, bgtValueStaked, earnings, bgtEarnings) = valueFacet.queryValue(address(this), 0xA);
+
+        console.log("\n Test contract Position after testcontract addvalue 5e12 and 4e12 bgt:- query value:");
+        console.log("Total Value: %s", vm.toString(valueStaked));
+        console.log("BGT Value: %s", vm.toString(bgtValueStaked));
+        for(uint i = 0; i< 16; i++) {
+            console.log("Token earning %d: %s", i, vm.toString(earnings[i]));
+        }
+        console.log("BGT Earning: %s", vm.toString(bgtEarnings));
+
+
+
+
+        // We don't quite earn bgt yet without an exchanger.
+        MockERC20(tokens[1]).mint(address(vaults[1]), 1e12);
+        (valueStaked, bgtValueStaked, earnings, bgtEarnings) = valueFacet.queryValue(address(this), 0xA);
+         
+
+
+        console.log("\n Test contract Position after testcontract mint 1e12 for vault[1]:- query value:");
+        console.log("Total Value: %s", vm.toString(valueStaked));
+        console.log("BGT Value: %s", vm.toString(bgtValueStaked));
+        for(uint i = 0; i< 16; i++) {
+            console.log("Token earning %d: %s", i, vm.toString(earnings[i]));
+        }
+        console.log("BGT Earning: %s", vm.toString(bgtEarnings));
+
+
+        vm.startPrank(owner);
+        _installBGTExchanger();
+        vm.stopPrank();
+
+
+        // Now when we earn fees, part of it is 1 to 1 exchanged for bgt.
+        MockERC20(tokens[1]).mint(address(vaults[1]), 1e12);
+         
+        (valueStaked, bgtValueStaked, earnings, bgtEarnings) = valueFacet
+            .queryValue(address(this), 0xA);
+
+
+
+        console.log("\n Test contract Position after testcontract again mint 1e12 for vault[1]:- query value:");
+        console.log("Total Value: %s", vm.toString(valueStaked));
+        console.log("BGT Value: %s", vm.toString(bgtValueStaked));
+        for(uint i = 0; i< 16; i++) {
+            console.log("Token earning %d: %s", i, vm.toString(earnings[i]));
+        }
+        console.log("BGT Earning: %s", vm.toString(bgtEarnings));
+
+
+
+        /// Test after removing, there are no more fees earned. Test that with query then an add and remove. As in fee claims remain unchanged.
+        valueFacet.removeValue(
+            address(this),
+            0xA,
+            uint128(valueStaked),
+            uint128(bgtValueStaked)
+        );
+        
+        (valueStaked, bgtValueStaked, earnings, bgtEarnings) = valueFacet.queryValue(address(this), 0xA);
+
+
+
+        console.log("\n Test contract Position after testcontract remove value :- query value:");
+        console.log("Total Value: %s", vm.toString(valueStaked));
+        console.log("BGT Value: %s", vm.toString(bgtValueStaked));
+        for(uint i = 0; i< 16; i++) {
+            console.log("Token earning %d: %s", i, vm.toString(earnings[i]));
+        }
+        console.log("BGT Earning: %s", vm.toString(bgtEarnings));
+
+
+        MockERC20(tokens[1]).mint(address(vaults[1]), 1e12);
+        (valueStaked, bgtValueStaked, earnings, bgtEarnings) = valueFacet.queryValue(address(this), 0xA);
+
+        console.log("\n Test contract Position after testcontract mint  1e12 for vault[1] :- query value:");
+        console.log("Total Value: %s", vm.toString(valueStaked));
+        console.log("BGT Value: %s", vm.toString(bgtValueStaked));
+        for(uint i = 0; i< 16; i++) {
+            console.log("Token earning %d: %s", i, vm.toString(earnings[i]));
+        }
+        console.log("BGT Earning: %s", vm.toString(bgtEarnings));
+
+
+
+
+         
+    }
+
+ 
 }

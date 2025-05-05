@@ -16,7 +16,7 @@ contract SwapFacetTest is MultiSetupTest {
         vm.startPrank(owner);
         _newDiamond();
         _newTokens(3);
-        _initializeClosure(0x7, 100e18);
+        _initializeClosure(0x7, 100e18);//@>i 0,1,2 => tokens[0,1,2]
         _initializeClosure(0x3, 100e18);
         _fundAccount(alice);
         _fundAccount(bob);
@@ -61,6 +61,9 @@ contract SwapFacetTest is MultiSetupTest {
         uint256 beforeBalance0 = token0.balanceOf(alice);
         uint256 beforeBalance1 = token1.balanceOf(alice);
 
+        console.log("\n balance of alice",token0.balanceOf(alice));
+        console.log("balance of alice",token1.balanceOf(alice));
+
         vm.startPrank(alice);
         (uint256 inAmount, uint256 outAmount) = swapFacet.swap(
             alice, // recipient
@@ -71,6 +74,12 @@ contract SwapFacetTest is MultiSetupTest {
             0x3
         );
         vm.stopPrank();
+        console.log("after swap");
+        console.log("\nbalance of alice",token0.balanceOf(alice));
+        console.log("balance of alice",token1.balanceOf(alice));
+
+        console.log("In amount: ", inAmount);
+        console.log("out amount: ", outAmount);
 
         assertEq(outAmount, swapAmount);
 
@@ -193,6 +202,7 @@ contract SwapFacetTest is MultiSetupTest {
                 0x7
             );
             assertLt(newOutAmount, outAmount);
+            console.log("alice swapin 1e12 token[0] for x token[1]> ", newOutAmount);
             outAmount = newOutAmount;
         }
         uint256 inAmount = 0;
@@ -206,6 +216,7 @@ contract SwapFacetTest is MultiSetupTest {
                 0x7
             );
             assertGt(newInAmount, inAmount);
+            console.log("alice swapout 1e12 token[1] for x  token[0]> ", newInAmount);
             inAmount = newInAmount;
         }
     }
@@ -259,6 +270,7 @@ contract SwapFacetTest is MultiSetupTest {
     function testSwapSymmetry() public {
         int256 swapAmount = 53e16;
         vm.startPrank(alice);
+        //@>i input 53e16 token 0 
         (uint256 in7, uint256 out7) = swapFacet.swap(
             alice,
             tokens[0],
@@ -267,6 +279,7 @@ contract SwapFacetTest is MultiSetupTest {
             0,
             0x7
         );
+        //@>i output 53e16 token 0
         (uint256 reverseOut7, uint256 reverseIn7) = swapFacet.swap(
             alice,
             tokens[1],
@@ -278,6 +291,7 @@ contract SwapFacetTest is MultiSetupTest {
         assertEq(in7, uint256(swapAmount));
         assertEq(reverseIn7, in7);
         assertApproxEqAbs(out7, reverseOut7, 1);
+
         (, uint256 testOut7) = swapFacet.swap(
             alice,
             tokens[0],
@@ -290,7 +304,7 @@ contract SwapFacetTest is MultiSetupTest {
     }
 
     function testSwapAndRemoveLiquidity() public {
-        uint256 swapAmount = 10e18;
+        uint256 swapAmount = 10e18;//@>i 10 token
         uint128 depositAmount = 400e18; // 200 for each token, init was 100 for each token.
         uint256 init0 = token0.balanceOf(alice);
         uint256 init1 = token1.balanceOf(alice);
@@ -313,23 +327,35 @@ contract SwapFacetTest is MultiSetupTest {
         // Then remove liquidity
         vm.prank(alice);
         valueFacet.removeValue(alice, 0x3, depositAmount, 0);
-
+        //@>i alice share of the pool = 400 / 600 = 2/3 of the pool in x128
         uint256 valueRatioX128 = (uint256(depositAmount) << 128) /
             (depositAmount + 200e18);
-        console.log(inAmount, outAmount, valueRatioX128);
+
+        console.log("bob swap ammount and alice ratio",inAmount, outAmount, valueRatioX128);
+
         uint256 excess0 = token0.balanceOf(alice) - init0;
+
+        console.log("excess of token 0 for alice: ", init0 ," + " ,  excess0 , " = " , token0.balanceOf(alice) );
+
         // Allow for rounding on withdrawal.
         assertApproxEqAbs(
             excess0,
             FullMath.mulX128(valueRatioX128, inAmount, false),
             3
         );
+
         uint256 lesser1 = init1 - token1.balanceOf(alice);
+
+        console.log("lesser of token 1 for alice: ", init1 , " - " , lesser1 , " = " , token1.balanceOf(alice));
+
+
         assertApproxEqAbs(
             lesser1,
             FullMath.mulX128(valueRatioX128, outAmount, false),
             3
         );
+
+
     }
 
     function testSwapWithDifferentLiq() public {

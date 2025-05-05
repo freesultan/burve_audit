@@ -389,12 +389,15 @@ library ClosureImpl {
     {
         require(self.cid.contains(inVid), IrrelevantVertex(self.cid, inVid));
         require(self.cid.contains(outVid), IrrelevantVertex(self.cid, outVid));
+
         trimBalance(self, inVid);
         trimBalance(self, outVid);
+
         // The value in this pool won't change.
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
         // First tax the in token.
         uint8 inIdx = inVid.idx();
+        
         tax = FullMath.mulX128(inAmount, self.baseFeeX128, true);
         inAmount -= tax;
         // Calculate the value added by the in token.
@@ -742,7 +745,9 @@ library ClosureImpl {
         );
         // All pools start with non-zero nonbgtvalue
         self.earningsPerValueX128[idx] += (earnings << 128) / nonBgtValueStaked;
+
         if (self.bgtValueStaked > 0) {
+
             (uint256 bgtEarned, uint256 unspent) = SimplexLib.bgtExchange(
                 idx,
                 bgtReal

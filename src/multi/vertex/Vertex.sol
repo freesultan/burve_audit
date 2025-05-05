@@ -75,12 +75,15 @@ library VertexImpl {
         }
         uint256 residualReal = realBalance - targetReal;
         vProxy.withdraw(cid, residualReal);
+
         bgtResidual = FullMath.mulDiv(residualReal, bgtValue, value);
+
         reserveSharesEarned = ReserveLib.deposit(
             vProxy,
             self.vid,
             residualReal - bgtResidual
         );
+
         vProxy.commit();
     }
 
@@ -123,7 +126,7 @@ library VertexImpl {
         Vertex storage self,
         ClosureId cid,
         uint256 amount,
-        bool checkLock
+        bool checkLock//@>q what's this checklock for?
     ) internal {
         require(!(checkLock && self._isLocked), VertexLocked(self.vid));
         VaultProxy memory vProxy = VaultLib.getProxy(self.vid);

@@ -44,7 +44,7 @@ contract SwapFacet is ReentrancyGuardTransient {
     /// Attempted a swap smaller than the minimum.
     error BelowMinSwap(uint256 nominalSwapAttempted, uint256 minSwap);
 
-    //@>q what's the diff between readl and nomina value?
+    //@>q what's the diff between readl and nomina value? nominlaVaule are calculated by adjustors for calculations and then they will be conveted to real values
     /// Swap one token for another.
     /// @param amountSpecified The exact input when positive, the exact output when negative.
     /// @param amountLimit When exact input, the minimum amount out. When exact output, the maximum amount in.
@@ -54,46 +54,60 @@ contract SwapFacet is ReentrancyGuardTransient {
         address recipient,
         address inToken,
         address outToken,
-        int256 amountSpecified,
-        uint256 amountLimit,
+        int256 amountSpecified,//@>i real value
+        uint256 amountLimit,//@>i real value
         uint16 _cid
     ) external nonReentrant returns (uint256 inAmount, uint256 outAmount) {
-        //@>q what does vertex do?
+        //@>q what does vertex do? manager tokens,vaults , locks 
         // Validates the tokens.
         VertexId inVid = VertexLib.newId(inToken);
         VertexId outVid = VertexLib.newId(outToken);
+
         require(!inVid.isEq(outVid), VacuousSwap()); // The user just ends up paying.
+
         // Validates the closure.
         ClosureId cid = ClosureId.wrap(_cid);
         Closure storage c = Store.closure(cid);
+
+        //@>q where do we check if inVid and outVid are part of this closure? in the swapInExact
         uint256 valueExchangedX128;
         uint256 realTax;
+
         if (amountSpecified > 0) {
             inAmount = uint256(amountSpecified);
+
             uint256 nominalIn = AdjustorLib.toNominal(
                 inVid.idx(),
                 inAmount,
                 false
-            );
+            );//@>i correct decimals of the inAmount through adjustorDecimal
+
             require(
-                nominalIn >= MIN_SWAP_SIZE,
+                nominalIn >= MIN_SWAP_SIZE, //@>i nominalIn must be greater than 16e8
                 BelowMinSwap(nominalIn, MIN_SWAP_SIZE)
             );
+
             uint256 nominalOut;
             uint256 nominalTax;
+
             (nominalOut, nominalTax, valueExchangedX128) = c.swapInExact(
                 inVid,
                 outVid,
                 nominalIn
             );
+
             outAmount = AdjustorLib.toReal(outVid.idx(), nominalOut, false);
+            
             // Figure out the tax in real terms. This is cheaper than another adjust call.
             // Round up to protect the vertex balance invariant.
             realTax = FullMath.mulDiv(inAmount, nominalTax, nominalIn);
+            //@>q what is the usage of realTax?
+
             require(
                 outAmount >= amountLimit,
                 SlippageSurpassed(amountLimit, outAmount, true)
             );
+
         } else {
             outAmount = uint256(-amountSpecified);
             uint256 nominalOut = AdjustorLib.toNominal(
@@ -121,6 +135,8 @@ contract SwapFacet is ReentrancyGuardTransient {
                 );
             }
         }
+
+
         if (inAmount > 0) {
             // Get the tokens
             TransferHelper.safeTransferFrom(
@@ -129,6 +145,7 @@ contract SwapFacet is ReentrancyGuardTransient {
                 address(this),
                 inAmount
             );
+            
             c.addEarnings(inVid, realTax);
             Store.vertex(inVid).deposit(cid, inAmount - realTax);
             Store.vertex(outVid).withdraw(cid, outAmount, true);
@@ -168,20 +185,24 @@ contract SwapFacet is ReentrancyGuardTransient {
         VertexId inVid = VertexLib.newId(inToken);
         VertexId outVid = VertexLib.newId(outToken);
         Closure storage c = Store.closure(ClosureId.wrap(cid));
+
         if (amountSpecified > 0) {
             inAmount = uint256(amountSpecified);
             uint256 nominalIn = AdjustorLib.toNominal(
                 inVid.idx(),
                 inAmount,
                 false
-            );
+            ); //@>i adjustor.toNominal() => store.adjuster()(get adjuster) => adjuser.toNaminal()
             uint256 nominalOut;
+
             (nominalOut, valueExchangedX128) = c.simSwapInExact(
                 inVid,
                 outVid,
                 nominalIn
             );
             outAmount = AdjustorLib.toReal(outVid.idx(), nominalOut, false);
+
+
         } else {
             outAmount = uint256(-amountSpecified);
             uint256 nominalOut = AdjustorLib.toNominal(

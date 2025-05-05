@@ -196,11 +196,21 @@ contract ValueFacet is ReentrancyGuardTransient {
         nonReentrant
         returns (uint256[MAX_TOKENS] memory receivedBalances)
     {
+        //@>i some checks
         if (value == 0) revert DeMinimisDeposit();
         require(bgtValue <= value, InsufficientValueForBgt(value, bgtValue));
+
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid);
+
+        /* @>audit:medium position is removed from msg.sender and will be sent to the recipient
+        Can cause accidental fund loss (to wrong recipient)
+        Involves principal LP positions
+        Actions are irreversible
+         */
         Store.assets().remove(msg.sender, cid, value, bgtValue);
+
+
         uint256[MAX_TOKENS] memory nominalReceives = c.removeValue(
             value,
             bgtValue
@@ -344,16 +354,19 @@ contract ValueFacet is ReentrancyGuardTransient {
         )
     {
         ClosureId cid = ClosureId.wrap(closureId);
+
         // Catch up on rehypothecation gains before we claim fees.
         Store.closure(cid).trimAllBalances(); 
 
 
         uint256[MAX_TOKENS] memory collectedShares;
-        //@>audit msg.sender is used for fee claiming but recipient for receiving tokens
+
+        //@>audit:low msg.sender is used for fee claiming but recipient for receiving tokens
         (collectedShares, collectedBgt) = Store.assets().claimFees(
             msg.sender,
             cid
-        );
+        );//@>i this resets earnings
+
         if (collectedBgt > 0)
             //@>i bgtExchanger distributes bgt rewards
             //@>q who is the msg.sender when we call bgtExchanger withdraw function(), vaultFaucet or caller?

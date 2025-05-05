@@ -112,7 +112,7 @@ struct VaultStorage {
 
 ValueFacet.addValue() ->
   Vertex.deposit() -> 
-    VaultProxy.deposit() ->
+    VaultProxy.deposit() -> vaultPointer.deposit() -> 
       VaultE4626.deposit() or other vault type (which is the active vault)
 
 
